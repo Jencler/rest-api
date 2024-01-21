@@ -1,11 +1,11 @@
 import express from "express";
-import morgan from "morgan";
+/* import morgan from "morgan";*/
 import { readJSON } from "./utils.js";
 import crypto from "node:crypto"
 import { validateMovie, validatePartial } from "./schemas/movies.js";
 
 const app = express()
-app.use(morgan('dev'))
+/* app.use(morgan('dev'))*/
 app.disable('x-powered-by')
 app.use(express.json())
 
