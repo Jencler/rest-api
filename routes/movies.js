@@ -1,46 +1,34 @@
 import { Router } from "express";
-import { readJSON } from "../utils.js";
-import crypto from 'crypto'
-import { validateMovie,validatePartial } from "../schemas/movies.js";
+import { validateMovie, validatePartial } from "../schemas/movies.js";
+import { MovieModel } from "../models/movie.js";
 
 
 
-const allMovies = readJSON('./movies.json')
 
 export const movieRouter = Router()
 
-movieRouter.get('/', (req, res) => {
+movieRouter.get('/', async (req, res) => {
 
   const { genre, title } = req.query
 
-  if (genre) {
-    const filterMovie = allMovies.filter(movie =>
-      movie.genre.some(g => g.toLowerCase() === genre.toLowerCase())
-    )
-    return res.json(filterMovie)
-  }
-
-  if (title) {
-    const filterMovie = allMovies.filter(movie =>
-      movie.title.toLowerCase() === title.toLocaleLowerCase()
-    )
-    return res.json(filterMovie)
-  }
+  const allMovies = await MovieModel.getAll({ title, genre })
 
   res.status(200).json(allMovies)
 
 })
 
-movieRouter.get('/:id', (req, res) => {
+movieRouter.get('/:id', async (req, res) => {
 
   const { id } = req.params
-  const movieID = allMovies.find(movie => movie.id === id)
+
+  const movieID = await MovieModel.getMovieByID({ id })
 
   if (movieID) return res.json(movieID)
+
   res.status(404).json({ message: 'movie not found' })
 })
 
-movieRouter.post('/', (req, res) => {
+movieRouter.post('/', async (req, res) => {
 
   const result = validateMovie(req.body)
 
@@ -48,48 +36,36 @@ movieRouter.post('/', (req, res) => {
     return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
 
-  const newMovie = {
-    id: crypto.randomUUID(),
-    ...result.data
-  }
+  const newMovie = await MovieModel.create({ input: result.data })
 
-  //Esto no seria correcto ❌ ya que estamos mutando el array
-  //y no estamos guardando en una base de datos solo en memoria
-  allMovies.push(newMovie)
-  res.status(201).json(allMovies)
+ 
+  res.status(201).json(newMovie)
 
 })
 
-movieRouter.patch('/:id', (req, res) => {
+movieRouter.patch('/:id', async (req, res) => {
+  
   const result = validatePartial(req.body)
+
   if (!result.success) {
     return res.status(400).json({ error: JSON.parse(result.error.message) })
   }
 
   const { id } = req.params
-  const movieIndex = allMovies.findIndex(movie => movie.id === id)
-
-  if (movieIndex === -1) {
-    return res.status(404).json({ message: 'Movie not fund' })
-  }
-
-  const updateMovie = {
-    ...allMovies[movieIndex],
-    ...result.data
-  }
-
-  res.json(updateMovie)
+  
+  const updatedMovie = await MovieModel.update({ id, input: result.data })
+  
+  return res.json(updatedMovie)
 })
 
-movieRouter.delete('/:id', (req, res) => {
+movieRouter.delete('/:id', async (req, res) => {
   const { id } = req.params
 
-  const movieIndex = allMovies.findIndex(movie => movie.id === id)
-
-  if (movieIndex === -1) {
-    return res.status(404).json({ message: 'movie not found' })
+  const resp = await MovieModel.delete({id})
+  
+  if (resp === false) {
+    return res.status(400).json({message: 'Movie not founded'})
   }
 
-  allMovies.splice(movieIndex, 1)
   return res.json({ message: 'Movie deleted' })
 })
